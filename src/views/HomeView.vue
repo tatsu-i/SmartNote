@@ -41,6 +41,14 @@ const selectedTab = ref<'text' | 'code' | 'question'>('text')
 
 const memoStore = useMemoStore()
 const memos = computed(() => memoStore.memos)
+const sortedMemos = computed(() => {
+  return [...memos.value].sort((a, b) => {
+    if (a.is_pinned !== b.is_pinned) {
+      return b.is_pinned ? 1 : -1
+    }
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  })
+})
 
 const handlePin = (id: string) => {
   memoStore.togglePin(id)
@@ -177,36 +185,36 @@ onMounted(async () => {
 
           <div class="flex justify-end gap-2">
             <Button type="button" variant="outline" @click="cancelCreateMemo">キャンセル</Button>
-            <Button type="submit" :disabled="!memoContent">
-              <div v-if="memoStore.loading">
-                <span class="opacity-0">保存</span>
-                <span class="absolute inset-0 flex items-center justify-center">
-                  <svg
-                    class="h-4 w-4 animate-spin"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      class="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      class="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                </span>
-              </div>
-              <div v-else class="flex items-center gap-1">
+            <Button type="submit" :disabled="!memoContent" class="relative">
+              <span
+                v-if="memoStore.loading"
+                class="absolute inset-0 flex items-center justify-center"
+              >
+                <svg
+                  class="h-4 w-4 animate-spin"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    class="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+              </span>
+              <span :class="{ 'opacity-0': memoStore.loading }" class="flex items-center gap-1">
                 <Sparkles class="mr-1 h-4 w-4" />
                 保存
-              </div>
+              </span>
             </Button>
           </div>
           <p v-if="memoStore.error" class="text-red-600 text-right text-sm">
@@ -217,7 +225,7 @@ onMounted(async () => {
 
       <div v-else-if="isCreatingMemo === false" class="grid gap-4 grid-cols-3 my-6">
         <div
-          v-for="memo in memos"
+          v-for="memo in sortedMemos"
           :key="memo.id"
           :class="
             cn(
