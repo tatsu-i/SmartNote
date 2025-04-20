@@ -1,4 +1,4 @@
-import { useAuthStore } from '@/auth/authStore'
+import { useAuthStore } from '@/stores/authStore'
 import { createRouter, createWebHistory } from 'vue-router'
 
 const router = createRouter({

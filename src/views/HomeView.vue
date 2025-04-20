@@ -10,6 +10,7 @@ import {
   PlusIcon,
   Sparkles,
   X,
+  Tag,
 } from 'lucide-vue-next'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -20,11 +21,47 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import Badge from '@/components/ui/badge/Badge.vue'
-import { dammyMemos } from '@/dammy'
 import { cn } from '@/lib/utils'
-import { ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  TagsInput,
+  TagsInputInput,
+  TagsInputItem,
+  TagsInputItemDelete,
+  TagsInputItemText,
+} from '@/components/ui/tags-input'
+import { useMemoStore } from '@/stores/memoStore'
 
 const isCreatingMemo = ref(false)
+const memoContent = ref('')
+const tags = ref<string[]>([])
+const selectedTab = ref<'text' | 'code' | 'question'>('text')
+
+const memoStore = useMemoStore()
+const memos = computed(() => memoStore.memos)
+
+const handlePin = (id: string) => {
+  memoStore.togglePin(id)
+}
+
+const handleSubmit = async () => {
+  await memoStore.addMemo(memoContent.value, selectedTab.value, tags.value)
+  if (!memoStore.error) {
+    memoContent.value = ''
+    tags.value = []
+    isCreatingMemo.value = false
+  }
+}
+
+const cancelCreateMemo = () => {
+  isCreatingMemo.value = false
+}
+
+onMounted(async () => {
+  await memoStore.getMemo()
+})
 </script>
 
 <template>
@@ -33,16 +70,16 @@ const isCreatingMemo = ref(false)
       <header class="py-7">
         <h1 class="text-4xl font-semibold">SmartNote</h1>
       </header>
-      <div class="pb-5 border-b">
+      <div class="pb-3 border-b">
         <div class="relative w-full max-w-md items-center mb-5">
           <Input id="search" type="text" placeholder="Search..." class="pl-10" />
           <span class="absolute start-0 inset-y-0 flex items-center justify-center px-2">
             <Search class="size-4 text-muted-foreground" />
           </span>
         </div>
-        <div class="flex justify-between">
+        <div class="flex justify-between items-center">
           <h2 class="font-bold text-xl">すべてのメモ</h2>
-          <Button @click="() => (isCreatingMemo = !isCreatingMemo)" class="py-5">
+          <Button @click="() => (isCreatingMemo = true)" class="py-5">
             <PlusIcon class="mr-1 h-4 w-4" />
             新規メモ
           </Button>
@@ -50,7 +87,7 @@ const isCreatingMemo = ref(false)
       </div>
 
       <div v-if="isCreatingMemo" class="rounded-lg border bg-card p-4 shadow-sm">
-        <form v-on:submit="" class="space-y-4">
+        <form class="space-y-4" @submit.prevent="handleSubmit">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
               <h2 class="font-semibold text-lg">新しいメモ</h2>
@@ -61,25 +98,135 @@ const isCreatingMemo = ref(false)
                 <span>AIがタイトルとタグを自動生成</span>
               </div>
             </div>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" @click="cancelCreateMemo">
               <X class="w-3 h-3" />
             </Button>
           </div>
+          <Tabs v-model="selectedTab" default-value="text" class="w-full">
+            <TabsList class="w-full grid grid-cols-3">
+              <TabsTrigger value="text">
+                <div class="flex items-center gap-2">
+                  <FileText class="h-4 w-4" />
+                  <span>テキスト</span>
+                </div>
+              </TabsTrigger>
+              <TabsTrigger value="code">
+                <div class="flex items-center gap-2">
+                  <Code class="h-4 w-4" />
+                  <span>コード</span>
+                </div>
+              </TabsTrigger>
+              <TabsTrigger value="question">
+                <div class="flex items-center gap-2">
+                  <HelpCircle class="h-4 w-4" />
+                  <span>質問</span>
+                </div>
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="text" class="mt-2">
+              <Textarea
+                placeholder="メモの内容を入力..."
+                v-model="memoContent"
+                class="min-h-[150px] w-full resize-y"
+              />
+            </TabsContent>
+            <TabsContent value="code" class="mt-2">
+              <Textarea
+                placeholder="コードスニペットを入力..."
+                v-model="memoContent"
+                class="min-h-[150px] w-full resize-y font-mono"
+              />
+            </TabsContent>
+            <TabsContent value="question" class="mt-2">
+              <Textarea
+                placeholder="質問内容を入力..."
+                v-model="memoContent"
+                class="min-h-[150px] w-full resize-y"
+              />
+            </TabsContent>
+          </Tabs>
+
+          <div class="border rounded-mg p-3">
+            <div class="flex items-center gap-3">
+              <div class="flex items-center gap-2">
+                <Tag class="h-4 w-4" />
+                <span class="text-muted-foreground text-sm">タグ</span>
+              </div>
+              <div
+                class="flex items-center gap-1 rounded-full bg-secondary/50 px-3 py-1 text-xs text-muted-foreground"
+              >
+                <Sparkles class="h-3 w-3" />
+                <span>AI生成</span>
+              </div>
+            </div>
+            <TagsInput v-model="tags" class="py-3 my-2">
+              <TagsInputItem v-model="tags" v-for="tag in tags" :key="tag" :value="tag">
+                <TagsInputItemText />
+                <TagsInputItemDelete />
+              </TagsInputItem>
+
+              <TagsInputInput placeholder="タグを追加" />
+            </TagsInput>
+            <p class="mt-3 text-xs text-muted-foreground">
+              Enterキーでタグを追加、Backspaceキーで最後のタグを削除
+            </p>
+            <p class="mt-2 text-xs text-muted-foreground">
+              タグを追加すると、AIが生成するタグと組み合わせて使用されます。入力は任意です。
+            </p>
+          </div>
+
+          <div class="flex justify-end gap-2">
+            <Button type="button" variant="outline" @click="cancelCreateMemo">キャンセル</Button>
+            <Button type="submit" :disabled="!memoContent">
+              <div v-if="memoStore.loading">
+                <span class="opacity-0">保存</span>
+                <span class="absolute inset-0 flex items-center justify-center">
+                  <svg
+                    class="h-4 w-4 animate-spin"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      class="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      class="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                </span>
+              </div>
+              <div v-else class="flex items-center gap-1">
+                <Sparkles class="mr-1 h-4 w-4" />
+                保存
+              </div>
+            </Button>
+          </div>
+          <p v-if="memoStore.error" class="text-red-600 text-right text-sm">
+            {{ memoStore.error }}
+          </p>
         </form>
       </div>
 
       <div v-else-if="isCreatingMemo === false" class="grid gap-4 grid-cols-3 my-6">
         <div
-          v-for="memo in dammyMemos"
+          v-for="memo in memos"
           :key="memo.id"
           :class="
             cn(
               'group relative flex flex-col cursor-pointer h-full rounded-lg border p-4 transition-all hover:border-primary/50 hover:shadow-sm',
-              memo.isPinned ? 'border-primary/30 bg-primary/5' : '',
+              memo.is_pinned ? 'border-primary/30 bg-primary/5' : '',
             )
           "
         >
-          <div v-if="memo.isPinned" class="absolute right-2 top-2">
+          <div v-if="memo.is_pinned" class="absolute right-2 top-2">
             <Pin class="h-4 w-4 text-primary" fill="currentColor" />
           </div>
           <div class="mb-2 flex items-center gap-2 pr-1">
@@ -109,9 +256,9 @@ const isCreatingMemo = ref(false)
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem @click="handlePin" class="cursor-pointer">
+                <DropdownMenuItem @click="handlePin(memo.id)" class="cursor-pointer">
                   <Pin class="mr-2 h-4 w-4" />
-                  {{ memo.isPinned ? 'ピン留めを解除' : 'ピン留め' }}
+                  {{ memo.is_pinned ? 'ピン留めを解除' : 'ピン留め' }}
                 </DropdownMenuItem>
                 <DropdownMenuItem class="text-destructive focus:text-destructive cursor-pointer">
                   <Trash class="mr-2 h-4 w-4" />
@@ -123,9 +270,9 @@ const isCreatingMemo = ref(false)
 
           <p class="mb-4 line-clamp-3 flex-1 text-sm text-muted-foreground">
             <code v-if="memo.type === 'code'" class="block whitespace-pre-wrap font-mono text-xs">
-              {{ memo.content }}
+              {{ memo.user_memo }}
             </code>
-            <span v-else>{{ memo.content }}</span>
+            <span v-else>{{ memo.user_memo }}</span>
           </p>
           <div class="mt-auto">
             <div class="mb-2 flex flex-wrap gap-1">
@@ -141,7 +288,7 @@ const isCreatingMemo = ref(false)
               >
             </div>
             <div class="text-xs text-muted-foreground">
-              {{ new Date(memo.updatedAt).toLocaleDateString('ja-JP') }}
+              {{ new Date(memo.updated_at).toLocaleDateString('ja-JP') }}
             </div>
           </div>
         </div>

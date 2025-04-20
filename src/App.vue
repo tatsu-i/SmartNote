@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useAuthStore } from '@/auth/authStore'
+import { useAuthStore } from '@/stores/authStore'
 import { onMounted } from 'vue'
 import { SidebarProvider } from './components/ui/sidebar'
 import { RouterView } from 'vue-router'

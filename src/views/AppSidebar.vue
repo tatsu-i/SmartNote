@@ -15,7 +15,7 @@ import {
 import { ChartPie, FolderKanban, Library, Settings, Sparkles } from 'lucide-vue-next'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { cn } from '@/lib/utils'
-import { useAuthStore } from '@/auth/authStore'
+import { useAuthStore } from '@/stores/authStore'
 
 const route = useRoute()
 const authStore = useAuthStore()

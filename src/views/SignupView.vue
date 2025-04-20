@@ -5,7 +5,7 @@ export const iframeHeight = '800px'
 export const containerClass = 'w-full h-full p-4 lg:p-0'
 </script>
 <script setup lang="ts">
-import { useAuthStore } from '@/auth/authStore'
+import { useAuthStore } from '@/stores/authStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
