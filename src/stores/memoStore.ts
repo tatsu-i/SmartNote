@@ -12,6 +12,22 @@ export const useMemoStore = defineStore('memo', () => {
   const loading = ref(false)
   const error = ref('')
 
+  const getMemo = async () => {
+    try {
+      loading.value = true
+      const { data, error: getError } = await supabase
+        .from('memos')
+        .select()
+        .eq('user_id', user_id.value)
+      if (getError) throw getError
+      if (data) memos.value = data
+    } catch (err) {
+      error.value = `メモを取得できませんでした：${err}`
+    } finally {
+      loading.value = false
+    }
+  }
+
   const addMemo = async (newMemo: string, type: 'text' | 'code' | 'question', tags: string[]) => {
     try {
       // console.log(user_id.value)
@@ -41,19 +57,16 @@ export const useMemoStore = defineStore('memo', () => {
     }
   }
 
-  const getMemo = async () => {
-    try {
-      loading.value = true
-      const { data, error: getError } = await supabase
-        .from('memos')
-        .select()
-        .eq('user_id', user_id.value)
-      if (getError) throw getError
-      if (data) memos.value = data
-    } catch (err) {
-      error.value = `メモを取得できませんでした：${err}`
-    } finally {
-      loading.value = false
+  const deleteMemo = async (id: string) => {
+    const memo = memos.value.find((memo) => memo.id === id)
+    if (memo) {
+      const { error: deleteError } = await supabase.from('memos').delete().eq('id', id)
+
+      if (deleteError) {
+        console.error('Delete Error:', deleteError)
+        return
+      }
+      memos.value = memos.value.filter((memo) => memo.id !== id)
     }
   }
 
@@ -75,9 +88,10 @@ export const useMemoStore = defineStore('memo', () => {
   return {
     memos,
     loading,
-    addMemo,
     error,
     getMemo,
+    addMemo,
+    deleteMemo,
     togglePin,
   }
 })

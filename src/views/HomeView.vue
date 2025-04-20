@@ -54,6 +54,10 @@ const handlePin = (id: string) => {
   memoStore.togglePin(id)
 }
 
+const handleDelete = (id: string) => {
+  memoStore.deleteMemo(id)
+}
+
 const handleSubmit = async () => {
   await memoStore.addMemo(memoContent.value, selectedTab.value, tags.value)
   if (!memoStore.error) {
@@ -258,7 +262,13 @@ onMounted(async () => {
                 <Button
                   variant="ghost"
                   size="icon"
-                  class="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
+                  :class="
+                    cn(
+                      'h-8 w-8 mr-0.5 opacity-0 transition-opacity group-hover:opacity-100',
+                      memo.is_pinned ? 'hover:bg-primary/10' : 'hover:bg-secondary/80',
+                    )
+                  "
+                  class=""
                 >
                   <MoreVertical class="h-4 w-4" />
                 </Button>
@@ -268,7 +278,10 @@ onMounted(async () => {
                   <Pin class="mr-2 h-4 w-4" />
                   {{ memo.is_pinned ? 'ピン留めを解除' : 'ピン留め' }}
                 </DropdownMenuItem>
-                <DropdownMenuItem class="text-destructive focus:text-destructive cursor-pointer">
+                <DropdownMenuItem
+                  @click="handleDelete(memo.id)"
+                  class="text-destructive focus:text-destructive cursor-pointer"
+                >
                   <Trash class="mr-2 h-4 w-4" />
                   削除
                 </DropdownMenuItem>
