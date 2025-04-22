@@ -11,6 +11,8 @@ import {
   Sparkles,
   X,
   Tag,
+  Copy,
+  Edit,
 } from 'lucide-vue-next'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -33,11 +35,17 @@ import {
   TagsInputItemText,
 } from '@/components/ui/tags-input'
 import { useMemoStore } from '@/stores/memoStore'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import type { memoContent } from '@/utils/types'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 const isCreatingMemo = ref(false)
 const memoContent = ref('')
 const tags = ref<string[]>([])
 const selectedTab = ref<'text' | 'code' | 'question'>('text')
+const selectedMemo = ref<memoContent>()
+const showDeleteDialog = ref(false)
+const editingTags = ref(false)
 
 const memoStore = useMemoStore()
 const memos = computed(() => memoStore.memos)
@@ -50,12 +58,27 @@ const sortedMemos = computed(() => {
   })
 })
 
+const handleSelectMemo = (memo: memoContent) => {
+  selectedMemo.value = memo
+}
+
 const handlePin = (id: string) => {
   memoStore.togglePin(id)
 }
 
 const handleDelete = (id: string) => {
   memoStore.deleteMemo(id)
+}
+
+const startEditingTags = () => {
+  tags.value = selectedMemo.value?.tags ? [...selectedMemo.value.tags] : []
+  editingTags.value = true
+}
+
+const handleEditTags = async (id: string) => {
+  await memoStore.editTags(id, tags.value)
+  tags.value = []
+  editingTags.value = false
 }
 
 const handleSubmit = async () => {
@@ -65,10 +88,6 @@ const handleSubmit = async () => {
     tags.value = []
     isCreatingMemo.value = false
   }
-}
-
-const cancelCreateMemo = () => {
-  isCreatingMemo.value = false
 }
 
 onMounted(async () => {
@@ -110,7 +129,7 @@ onMounted(async () => {
                 <span>AIがタイトルとタグを自動生成</span>
               </div>
             </div>
-            <Button variant="ghost" size="icon" @click="cancelCreateMemo">
+            <Button variant="ghost" size="icon" @click="isCreatingMemo = false">
               <X class="w-3 h-3" />
             </Button>
           </div>
@@ -157,7 +176,6 @@ onMounted(async () => {
               />
             </TabsContent>
           </Tabs>
-
           <div class="border rounded-mg p-3">
             <div class="flex items-center gap-3">
               <div class="flex items-center gap-2">
@@ -176,7 +194,6 @@ onMounted(async () => {
                 <TagsInputItemText />
                 <TagsInputItemDelete />
               </TagsInputItem>
-
               <TagsInputInput placeholder="タグを追加" />
             </TagsInput>
             <p class="mt-3 text-xs text-muted-foreground">
@@ -186,9 +203,10 @@ onMounted(async () => {
               タグを追加すると、AIが生成するタグと組み合わせて使用されます。入力は任意です。
             </p>
           </div>
-
           <div class="flex justify-end gap-2">
-            <Button type="button" variant="outline" @click="cancelCreateMemo">キャンセル</Button>
+            <Button type="button" variant="outline" @click="isCreatingMemo = false"
+              >キャンセル</Button
+            >
             <Button type="submit" :disabled="!memoContent" class="relative">
               <span
                 v-if="memoStore.loading"
@@ -227,10 +245,14 @@ onMounted(async () => {
         </form>
       </div>
 
-      <div v-else-if="isCreatingMemo === false" class="grid gap-4 grid-cols-3 my-6">
+      <div
+        v-else-if="isCreatingMemo === false && !selectedMemo"
+        class="grid gap-4 grid-cols-3 my-6"
+      >
         <div
           v-for="memo in sortedMemos"
           :key="memo.id"
+          @click="() => handleSelectMemo(memo)"
           :class="
             cn(
               'group relative flex flex-col cursor-pointer h-full rounded-lg border p-4 transition-all hover:border-primary/50 hover:shadow-sm',
@@ -288,7 +310,6 @@ onMounted(async () => {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-
           <p class="mb-4 line-clamp-3 flex-1 text-sm text-muted-foreground">
             <code v-if="memo.type === 'code'" class="block whitespace-pre-wrap font-mono text-xs">
               {{ memo.user_memo }}
@@ -309,10 +330,203 @@ onMounted(async () => {
               >
             </div>
             <div class="text-xs text-muted-foreground">
-              {{ new Date(memo.updated_at).toLocaleDateString('ja-JP') }}
+              {{
+                memo.updated_at
+                  ? new Date(memo.updated_at).toLocaleDateString('ja-JP')
+                  : new Date(memo.created_at).toLocaleDateString('ja-JP')
+              }}
             </div>
           </div>
         </div>
+      </div>
+
+      <div v-if="selectedMemo" class="p-4">
+        <Card class="overflow-hidden">
+          <CardHeader class="flex flex-row items-center justify-between bg-muted/30 pb-2">
+            <div class="flex items-center gap-2">
+              <div
+                :class="
+                  cn(
+                    'rounded-md p-1',
+                    selectedMemo.type === 'text' && 'bg-blue-100 text-blue-700',
+                    selectedMemo.type === 'code' && 'bg-green-100 text-green-700',
+                    selectedMemo.type === 'question' && 'bg-amber-100 text-amber-700',
+                  )
+                "
+              >
+                <FileText v-if="selectedMemo.type === 'text'" class="h-4 w-4" />
+                <Code v-else-if="selectedMemo.type === 'code'" class="h-4 w-4" />
+                <HelpCircle v-else-if="selectedMemo.type === 'question'" class="h-4 w-4" />
+              </div>
+              <div class="flex items-center gap-2">
+                <CardTitle class="text-base">{{ selectedMemo.title }}</CardTitle>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Sparkles class="h-4 w-4 text-primary" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>AIが生成したタイトル</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            </div>
+            <div class="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                @click="() => handlePin(selectedMemo!.id)"
+                :class="cn(selectedMemo.is_pinned ? 'text-primary' : 'text-muted-foreground')"
+              >
+                <Pin class="h-4 w-4" :fill="selectedMemo.is_pinned ? 'currentColor' : 'none'" />
+              </Button>
+              <Button variant="ghost" size="icon" @click="showDeleteDialog = !showDeleteDialog">
+                <Trash class="h-4 w4" />
+              </Button>
+              <Button variant="ghost" size="icon" @click="selectedMemo = undefined">
+                <X class="h-4 w-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent class="p-4 space-y-6">
+            <div>
+              <h3 class="class=mb-2 text-sm font-medium text-muted-foreground">メモ内容</h3>
+              <div v-if="selectedMemo.type === 'code'" class="relative">
+                <pre
+                  class="max-h-[300px] overflow-auto rounded-md bg-secondary p-4 font-mono text-sm"
+                >
+                  {{ selectedMemo.user_memo }}
+                </pre>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  class="absolute top-2 right-2 hover:bg-primary/10 hover:text-primary"
+                >
+                  <Copy class="mr-1 h-3 w-3" />
+                  コピー
+                </Button>
+              </div>
+              <div v-else class="max-h-[300px] overflow-auto rounded-md bg-muted/30 p-4">
+                <p class="whitespace-pre-wrap">{{ selectedMemo.user_memo }}</p>
+              </div>
+              <div class="mt-5">
+                <div class="mb-2 flex items-center gap-2">
+                  <h3 class="text-sm font-medium text-muted-foreground">AIによる解説</h3>
+                  <Sparkles class="h-3 w-3 text-primary" />
+                </div>
+                <div class="rounded-md bg-secondary/40 p-4 relative">
+                  <p class="whitespace-pre-wrap">{{ selectedMemo.ai_explanation }}</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    class="absolute top-2 right-2 hover:bg-primary/10 hover:text-primary"
+                  >
+                    <Copy class="mr-1 h-3 w-3" />
+                    コピー
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter class="flex flex-col items-start gap-4 border-t bg-muted/30 px-4 py-3">
+            <div v-if="editingTags" class="w-full">
+              <TagsInput v-model="tags" class="py-3 my-2">
+                <TagsInputItem v-for="tag in tags" :key="tag" :value="tag">
+                  <TagsInputItemText />
+                  <TagsInputItemDelete />
+                </TagsInputItem>
+                <TagsInputInput placeholder="タグを追加" />
+              </TagsInput>
+              <p class="mt-3 text-xs text-muted-foreground">
+                Enterキーでタグを追加、Backspaceキーで最後のタグを削除
+              </p>
+              <div class="mt-2 flex justify-end gap-2">
+                <Button variant="outline" size="sm" @click="editingTags = false">
+                  キャンセル
+                </Button>
+                <Button size="sm" @click="handleEditTags(selectedMemo.id)">
+                  <span
+                    v-if="memoStore.loading"
+                    class="absolute inset-0 flex items-center justify-center"
+                  >
+                    <svg
+                      class="h-4 w-4 animate-spin"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        class="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        class="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                  </span>
+                  <span :class="{ 'opacity-0': memoStore.loading }" class="flex items-center gap-1">
+                    保存
+                  </span>
+                </Button>
+              </div>
+            </div>
+            <div v-else class="w-full">
+              <div class="mt-2 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <h3 class="text-sm font-medium text-muted-foreground">タグ</h3>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Sparkles class="h-4 w-4 text-primary" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>AIが生成したタイトル</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  @click="startEditingTags"
+                  class="h-7 px-2 text-xs"
+                >
+                  <Edit class="mr-1 h-4 w-4" />
+                  編集
+                </Button>
+              </div>
+              <div class="flex flex-wrap gap-2 mt-2">
+                <Badge
+                  v-for="tag in selectedMemo.tags"
+                  :key="tag"
+                  variant="outline"
+                  class="bg-background rounded-xl"
+                >
+                  {{ tag }}
+                </Badge>
+              </div>
+            </div>
+            <div class="flex w-full items-center justify-end gap-3 text-xs text-muted-foreground">
+              <span
+                >作成日：{{ new Date(selectedMemo.created_at).toLocaleDateString('ja-JP') }}</span
+              >
+              <span
+                >更新日：{{
+                  selectedMemo.updated_at
+                    ? new Date(selectedMemo.updated_at).toLocaleDateString('ja-JP')
+                    : '未更新'
+                }}</span
+              >
+            </div>
+          </CardFooter>
+        </Card>
       </div>
     </div>
   </div>

@@ -85,6 +85,27 @@ export const useMemoStore = defineStore('memo', () => {
     }
   }
 
+  const editTags = async (id: string, updatedTags: string[]) => {
+    try {
+      loading.value = true
+      const memo = memos.value.find((memo) => memo.id === id)
+      if (memo) {
+        const { error: tagsError } = await supabase
+          .from('memos')
+          .update({ tags: updatedTags })
+          .eq('id', id)
+        if (tagsError) {
+          throw tagsError
+        }
+        memo.tags = updatedTags
+      }
+    } catch (err) {
+      console.error('Error editing tags:', err)
+    } finally {
+      loading.value = false
+    }
+  }
+
   return {
     memos,
     loading,
@@ -93,5 +114,6 @@ export const useMemoStore = defineStore('memo', () => {
     addMemo,
     deleteMemo,
     togglePin,
+    editTags,
   }
 })
