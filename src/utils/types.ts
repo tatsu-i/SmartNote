@@ -3,7 +3,7 @@ export interface memoContent {
   user_id: string
   title: string
   user_memo: string
-  type: 'text' | 'code' | 'question'
+  type: 'text' | 'code'
   tags: string[]
   is_pinned: boolean
   ai_explanation?: string

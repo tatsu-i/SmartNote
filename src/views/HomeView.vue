@@ -13,6 +13,9 @@ import {
   Tag,
   Copy,
   Edit,
+  Clock,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-vue-next'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -46,6 +49,8 @@ const selectedTab = ref<'text' | 'code' | 'question'>('text')
 const selectedMemo = ref<memoContent>()
 const showDeleteDialog = ref(false)
 const editingTags = ref(false)
+const quickMemoIsOpen = ref(true)
+const quickMemoContent = ref('')
 
 const memoStore = useMemoStore()
 const memos = computed(() => memoStore.memos)
@@ -108,6 +113,46 @@ onMounted(async () => {
             <Search class="size-4 text-muted-foreground" />
           </span>
         </div>
+
+        <div class="relative bg-muted/50 p-3 rounded-md mb-5">
+          <div
+            @click="quickMemoIsOpen = !quickMemoIsOpen"
+            class="flex items-center justify-between gap-2 mb-2 cursor-pointer"
+          >
+            <div class="flex items-center">
+              <h3 class="px-3 text-sm font-semibold">クイックメモ</h3>
+              <div class="flex items-center gap-1 text-sm text-muted-foreground opacity-100">
+                <Clock class="h-3 w-3" />
+                <span>5秒後に自動解析</span>
+              </div>
+            </div>
+            <ChevronUp v-if="quickMemoIsOpen" class="h-4 w-4 text-muted-foreground" />
+            <ChevronDown v-else class="h-4 w-4 text-muted-foreground" />
+          </div>
+          <div
+            :class="
+              cn(
+                'overflow-hidden transition-all duration-300 ease-in-out',
+                quickMemoIsOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0',
+              )
+            "
+          >
+            <div class="flex flex-col gap-2 rounded-lg p-3">
+              <textarea
+                v-model="quickMemoContent"
+                placeholder="単語やコードを入力すると、5秒後にAIが自動的に解説します..."
+                class="w-full resize-none rounded-md border px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-50 pr-10"
+              />
+              <div class="flex justify-end">
+                <Button type="button" size="sm" variant="outline" class="py-4 rounded-md">
+                  <Sparkles class="mr-1 h-3 w-3" />
+                  今すぐ解析
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="flex justify-between items-center">
           <h2 class="font-bold text-xl">すべてのメモ</h2>
           <Button @click="() => (isCreatingMemo = true)" class="py-5">
@@ -117,7 +162,7 @@ onMounted(async () => {
         </div>
       </div>
 
-      <div v-if="isCreatingMemo" class="rounded-lg border bg-card p-4 shadow-sm">
+      <div v-if="isCreatingMemo" class="rounded-lg border bg-card p-4 my-6 shadow-sm">
         <form class="space-y-4" @submit.prevent="handleSubmit">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
@@ -134,7 +179,7 @@ onMounted(async () => {
             </Button>
           </div>
           <Tabs v-model="selectedTab" default-value="text" class="w-full">
-            <TabsList class="w-full grid grid-cols-3">
+            <TabsList class="w-full grid grid-cols-2">
               <TabsTrigger value="text">
                 <div class="flex items-center gap-2">
                   <FileText class="h-4 w-4" />
@@ -147,32 +192,19 @@ onMounted(async () => {
                   <span>コード</span>
                 </div>
               </TabsTrigger>
-              <TabsTrigger value="question">
-                <div class="flex items-center gap-2">
-                  <HelpCircle class="h-4 w-4" />
-                  <span>質問</span>
-                </div>
-              </TabsTrigger>
             </TabsList>
             <TabsContent value="text" class="mt-2">
               <Textarea
                 placeholder="メモの内容を入力..."
                 v-model="memoContent"
-                class="min-h-[150px] w-full resize-y"
+                class="min-h-[150px] w-full resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/30"
               />
             </TabsContent>
             <TabsContent value="code" class="mt-2">
               <Textarea
                 placeholder="コードスニペットを入力..."
                 v-model="memoContent"
-                class="min-h-[150px] w-full resize-y font-mono"
-              />
-            </TabsContent>
-            <TabsContent value="question" class="mt-2">
-              <Textarea
-                placeholder="質問内容を入力..."
-                v-model="memoContent"
-                class="min-h-[150px] w-full resize-y"
+                class="min-h-[150px] w-full resize-y font-mono focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/30"
               />
             </TabsContent>
           </Tabs>
@@ -270,17 +302,15 @@ onMounted(async () => {
                   'rounded p-1',
                   memo.type === 'text' && 'bg-blue-100 text-blue-700',
                   memo.type === 'code' && 'bg-green-100 text-green-700',
-                  memo.type === 'question' && 'bg-amber-100 text-amber-700',
                 )
               "
             >
               <FileText v-if="memo.type === 'text'" class="h-4 w-4" />
               <Code v-else-if="memo.type === 'code'" class="h-4 w-4" />
-              <HelpCircle v-else-if="memo.type === 'question'" class="h-4 w-4" />
             </div>
             <h3 class="flex-1 truncate font-medium">{{ memo.title }}</h3>
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+              <DropdownMenuTrigger asChild @click.stop>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -296,7 +326,7 @@ onMounted(async () => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem @click="handlePin(memo.id)" class="cursor-pointer">
+                <DropdownMenuItem @click.stop="handlePin(memo.id)" class="cursor-pointer">
                   <Pin class="mr-2 h-4 w-4" />
                   {{ memo.is_pinned ? 'ピン留めを解除' : 'ピン留め' }}
                 </DropdownMenuItem>
@@ -350,13 +380,11 @@ onMounted(async () => {
                     'rounded-md p-1',
                     selectedMemo.type === 'text' && 'bg-blue-100 text-blue-700',
                     selectedMemo.type === 'code' && 'bg-green-100 text-green-700',
-                    selectedMemo.type === 'question' && 'bg-amber-100 text-amber-700',
                   )
                 "
               >
                 <FileText v-if="selectedMemo.type === 'text'" class="h-4 w-4" />
                 <Code v-else-if="selectedMemo.type === 'code'" class="h-4 w-4" />
-                <HelpCircle v-else-if="selectedMemo.type === 'question'" class="h-4 w-4" />
               </div>
               <div class="flex items-center gap-2">
                 <CardTitle class="text-base">{{ selectedMemo.title }}</CardTitle>
