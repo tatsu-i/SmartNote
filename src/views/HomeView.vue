@@ -6,7 +6,6 @@ import {
   Search,
   Trash,
   Code,
-  HelpCircle,
   PlusIcon,
   Sparkles,
   X,
@@ -27,7 +26,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import Badge from '@/components/ui/badge/Badge.vue'
 import { cn } from '@/lib/utils'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -87,9 +86,25 @@ const handleEditTags = async (id: string) => {
   editingTags.value = false
 }
 
+let quickParseTimer: number | null = null
+
+watch(quickMemoContent, () => {
+  if (quickParseTimer) {
+    clearTimeout(quickParseTimer)
+  }
+
+  quickParseTimer = window.setTimeout(() => {
+    if (quickMemoContent.value) {
+      memoStore.addQuickMemo(quickMemoContent.value)
+      quickParseTimer = null
+      quickMemoContent.value = ''
+    }
+  }, 5000)
+})
+
 const handleSubmit = async () => {
   isCreatingMemo.value = false
-  await memoStore.addMemo(memoContent.value, selectedTab.value, tags.value)
+  await memoStore.addNormalMemo(memoContent.value, selectedTab.value, tags.value)
   if (!memoStore.error) {
     memoContent.value = ''
     tags.value = []
@@ -151,6 +166,9 @@ onMounted(async () => {
                   今すぐ解析
                 </Button>
               </div>
+              <p v-if="memoStore.error" class="text-red-600 text-right text-sm">
+                {{ memoStore.error }}
+              </p>
             </div>
           </div>
         </div>

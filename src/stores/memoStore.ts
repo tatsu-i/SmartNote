@@ -1,5 +1,5 @@
 import { supabase } from '@/supabase/supabase'
-import type { aiResponse, memoContent } from '@/utils/types'
+import { type aiQuickResponse, type aiResponse, type memoContent } from '@/utils/types'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { useAuthStore } from './authStore'
@@ -10,6 +10,7 @@ export const useMemoStore = defineStore('memo', () => {
   const user_id = computed(() => authStore.user.id)
   const memos = ref<memoContent[]>([])
   const aiData = ref<aiResponse>()
+  const aiQuickData = ref<aiQuickResponse>()
   const loading = ref(false)
   const error = ref('')
 
@@ -29,7 +30,7 @@ export const useMemoStore = defineStore('memo', () => {
     }
   }
 
-  const addMemo = async (newMemo: string, type: 'text' | 'code', tags: string[]) => {
+  const addNormalMemo = async (newMemo: string, type: 'text' | 'code', tags: string[]) => {
     const userData = {
       memo_type: type,
       user_memo: newMemo,
@@ -73,6 +74,63 @@ export const useMemoStore = defineStore('memo', () => {
         user_memo: newMemo,
         ai_explanation: aiData.value!.explanation,
         tags: aiData.value!.ai_tags,
+        created_at: new Date().toISOString(),
+      }
+
+      const { data, error: insertError } = await supabase.from('memos').insert(memo).select()
+      if (insertError) throw insertError
+      if (data) {
+        const index = memos.value.findIndex((m) => m.id === tempMemo.id)
+        if (index !== -1) {
+          memos.value[index] = data[0]
+        }
+      }
+    } catch (err) {
+      memos.value = memos.value.filter((m) => m.id !== tempMemo.id)
+      error.value = `AIの生成に失敗しました:${err}`
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const addQuickMemo = async (quickMemo: string) => {
+    const tempMemo: memoContent = {
+      id: crypto.randomUUID(),
+      user_id: user_id.value,
+      title: '生成中...',
+      is_pinned: false,
+      type: 'text',
+      user_memo: quickMemo,
+      ai_explanation: '生成中...',
+      tags: [],
+      created_at: new Date().toISOString(),
+      isGenerating: true,
+    }
+
+    memos.value.push(tempMemo)
+
+    try {
+      loading.value = true
+      const response = await fetch('http://localhost:3000/memo-ai-completions/quick', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user_memo: quickMemo }),
+      })
+
+      aiQuickData.value = await response.json()
+      console.log(aiQuickData.value)
+
+      const memo: memoContent = {
+        id: tempMemo.id,
+        user_id: user_id.value,
+        title: aiQuickData.value!.title,
+        is_pinned: false,
+        type: aiQuickData.value!.memo_type,
+        user_memo: quickMemo,
+        ai_explanation: aiQuickData.value!.explanation,
+        tags: aiQuickData.value!.ai_tags,
         created_at: new Date().toISOString(),
       }
 
@@ -146,7 +204,8 @@ export const useMemoStore = defineStore('memo', () => {
     loading,
     error,
     getMemo,
-    addMemo,
+    addNormalMemo,
+    addQuickMemo,
     deleteMemo,
     togglePin,
     editTags,

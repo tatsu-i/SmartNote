@@ -17,3 +17,7 @@ export interface aiResponse {
   explanation: string
   ai_tags: string[]
 }
+
+export interface aiQuickResponse extends aiResponse {
+  memo_type: 'text' | 'code'
+}
