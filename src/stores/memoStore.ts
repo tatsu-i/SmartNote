@@ -36,6 +36,21 @@ export const useMemoStore = defineStore('memo', () => {
       user_tags: tags,
     }
 
+    const tempMemo: memoContent = {
+      id: crypto.randomUUID(),
+      user_id: user_id.value,
+      title: '生成中...',
+      is_pinned: false,
+      type,
+      user_memo: newMemo,
+      ai_explanation: '生成中...',
+      tags,
+      created_at: new Date().toISOString(),
+      isGenerating: true,
+    }
+
+    memos.value.push(tempMemo)
+
     try {
       loading.value = true
       const response = await fetch('http://localhost:3000/memo-ai-completions/normal', {
@@ -50,7 +65,7 @@ export const useMemoStore = defineStore('memo', () => {
       // console.log(aiData.value)
 
       const memo: memoContent = {
-        id: crypto.randomUUID(),
+        id: tempMemo.id,
         user_id: user_id.value,
         title: aiData.value!.title,
         is_pinned: false,
@@ -64,10 +79,16 @@ export const useMemoStore = defineStore('memo', () => {
       const { data, error: insertError } = await supabase.from('memos').insert(memo).select()
       if (insertError) throw insertError
       if (data) {
-        memos.value.push(data[0])
+        const index = memos.value.findIndex((m) => m.id === tempMemo.id)
+        if (index !== -1) {
+          memos.value[index] = data[0]
+        }
       }
     } catch (err) {
+      memos.value = memos.value.filter((m) => m.id !== tempMemo.id)
       error.value = `AIの生成に失敗しました:${err}`
+    } finally {
+      loading.value = false
     }
   }
 

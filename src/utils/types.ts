@@ -9,6 +9,7 @@ export interface memoContent {
   ai_explanation?: string
   created_at: string
   updated_at?: string
+  isGenerating?: boolean
 }
 
 export interface aiResponse {

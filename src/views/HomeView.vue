@@ -41,11 +41,12 @@ import { useMemoStore } from '@/stores/memoStore'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import type { memoContent } from '@/utils/types'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Skeleton } from '@/components/ui/skeleton'
 
 const isCreatingMemo = ref(false)
 const memoContent = ref('')
 const tags = ref<string[]>([])
-const selectedTab = ref<'text' | 'code' | 'question'>('text')
+const selectedTab = ref<'text' | 'code'>('text')
 const selectedMemo = ref<memoContent>()
 const showDeleteDialog = ref(false)
 const editingTags = ref(false)
@@ -87,11 +88,12 @@ const handleEditTags = async (id: string) => {
 }
 
 const handleSubmit = async () => {
+  isCreatingMemo.value = false
   await memoStore.addMemo(memoContent.value, selectedTab.value, tags.value)
   if (!memoStore.error) {
     memoContent.value = ''
     tags.value = []
-    isCreatingMemo.value = false
+    // isCreatingMemo.value = false
   }
 }
 
@@ -289,84 +291,116 @@ onMounted(async () => {
             cn(
               'group relative flex flex-col cursor-pointer h-full rounded-lg border p-4 transition-all hover:border-primary/50 hover:shadow-sm',
               memo.is_pinned ? 'border-primary/30 bg-primary/5' : '',
+              memo.isGenerating ? 'animate-pulse bg-muted/30' : '',
             )
           "
         >
           <div v-if="memo.is_pinned" class="absolute right-2 top-2">
             <Pin class="h-4 w-4 text-primary" fill="currentColor" />
           </div>
-          <div class="mb-2 flex items-center gap-2 pr-1">
+          <div class="mb-2 flex items-center gap-1 pr-1">
             <div
               :class="
                 cn(
                   'rounded p-1',
-                  memo.type === 'text' && 'bg-blue-100 text-blue-700',
-                  memo.type === 'code' && 'bg-green-100 text-green-700',
+                  memo.type === 'text' && !memo.isGenerating && 'bg-blue-100 text-blue-700',
+                  memo.type === 'code' && !memo.isGenerating && 'bg-green-100 text-green-700',
                 )
               "
             >
-              <FileText v-if="memo.type === 'text'" class="h-4 w-4" />
-              <Code v-else-if="memo.type === 'code'" class="h-4 w-4" />
+              <div v-if="memo.isGenerating" class="flex justify-center items-center">
+                <div class="relative h-4 w-4">
+                  <div
+                    class="absolute inset-0 rounded-full border-2 border-t-primary/80 border-r-primary/40 border-b-primary/20 border-l-primary/60 animate-spin"
+                  ></div>
+                </div>
+              </div>
+              <template v-else>
+                <FileText v-if="memo.type === 'text'" class="h-4 w-4" />
+                <Code v-else-if="memo.type === 'code'" class="h-4 w-4" />
+              </template>
             </div>
-            <h3 class="flex-1 truncate font-medium">{{ memo.title }}</h3>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild @click.stop>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  :class="
-                    cn(
-                      'h-8 w-8 mr-0.5 opacity-0 transition-opacity group-hover:opacity-100',
-                      memo.is_pinned ? 'hover:bg-primary/10' : 'hover:bg-secondary/80',
-                    )
-                  "
-                  class=""
-                >
-                  <MoreVertical class="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem @click.stop="handlePin(memo.id)" class="cursor-pointer">
-                  <Pin class="mr-2 h-4 w-4" />
-                  {{ memo.is_pinned ? 'ピン留めを解除' : 'ピン留め' }}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  @click="handleDelete(memo.id)"
-                  class="text-destructive focus:text-destructive cursor-pointer"
-                >
-                  <Trash class="mr-2 h-4 w-4" />
-                  削除
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <h3
+              v-if="memo.isGenerating"
+              class="flex-1 truncate font-medium flex items-center gap-2"
+            >
+              <span class="text-primary/70">生成中</span>
+              <span class="flex gap-1">
+                <span class="animate-bounce delay-0 h-1 w-1 rounded-full bg-primary/40"></span>
+                <span class="animate-bounce delay-100 h-1 w-1 rounded-full bg-primary/60"></span>
+                <span class="animate-bounce delay-200 h-1 w-1 rounded-full bg-primary/80"></span>
+              </span>
+            </h3>
+            <h3 v-else class="flex-1 truncate font-medium">{{ memo.title }}</h3>
+            <template v-if="!memo.isGenerating">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild @click.stop>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    :class="
+                      cn(
+                        'h-8 w-8 mr-0.5 opacity-0 transition-opacity group-hover:opacity-100',
+                        memo.is_pinned ? 'hover:bg-primary/10' : 'hover:bg-secondary/80',
+                      )
+                    "
+                    class=""
+                  >
+                    <MoreVertical class="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem @click.stop="handlePin(memo.id)" class="cursor-pointer">
+                    <Pin class="mr-2 h-4 w-4" />
+                    {{ memo.is_pinned ? 'ピン留めを解除' : 'ピン留め' }}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    @click="handleDelete(memo.id)"
+                    class="text-destructive focus:text-destructive cursor-pointer"
+                  >
+                    <Trash class="mr-2 h-4 w-4" />
+                    削除
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </template>
           </div>
-          <p class="mb-4 line-clamp-3 flex-1 text-sm text-muted-foreground">
-            <code v-if="memo.type === 'code'" class="block whitespace-pre-wrap font-mono text-xs">
-              {{ memo.user_memo }}
-            </code>
-            <span v-else>{{ memo.user_memo }}</span>
-          </p>
-          <div class="mt-auto">
-            <div class="mb-2 flex flex-wrap gap-1">
-              <Badge
-                v-for="tag in memo.tags.slice(0, 3)"
-                :key="tag"
-                variant="secondary"
-                class="text-xs rounded-xl"
-                >{{ tag }}</Badge
-              >
-              <Badge v-if="memo.tags.length > 3" variant="outline" class="text-xs"
-                >+{{ memo.tags.length - 3 }}</Badge
-              >
+          <template v-if="memo.isGenerating">
+            <div class="space-y-2 flex-1">
+              <Skeleton class="h-4 w-[90%]" />
+              <Skeleton class="h-4 w-[70%]" />
+              <Skeleton class="h-4 w-[80%]" />
             </div>
-            <div class="text-xs text-muted-foreground">
-              {{
-                memo.updated_at
-                  ? new Date(memo.updated_at).toLocaleDateString('ja-JP')
-                  : new Date(memo.created_at).toLocaleDateString('ja-JP')
-              }}
+          </template>
+          <template v-else>
+            <p class="mb-4 line-clamp-3 flex-1 text-sm text-muted-foreground">
+              <code v-if="memo.type === 'code'" class="block whitespace-pre-wrap font-mono text-xs">
+                {{ memo.user_memo }}
+              </code>
+              <span v-else>{{ memo.user_memo }}</span>
+            </p>
+            <div class="mt-auto">
+              <div class="mb-2 flex flex-wrap gap-1">
+                <Badge
+                  v-for="tag in memo.tags.slice(0, 3)"
+                  :key="tag"
+                  variant="secondary"
+                  class="text-xs rounded-xl"
+                  >{{ tag }}</Badge
+                >
+                <Badge v-if="memo.tags.length > 3" variant="outline" class="text-xs"
+                  >+{{ memo.tags.length - 3 }}</Badge
+                >
+              </div>
+              <div class="text-xs text-muted-foreground">
+                {{
+                  memo.updated_at
+                    ? new Date(memo.updated_at).toLocaleDateString('ja-JP')
+                    : new Date(memo.created_at).toLocaleDateString('ja-JP')
+                }}
+              </div>
             </div>
-          </div>
+          </template>
         </div>
       </div>
 
