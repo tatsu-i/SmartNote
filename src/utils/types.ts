@@ -10,3 +10,9 @@ export interface memoContent {
   created_at: string
   updated_at?: string
 }
+
+export interface aiResponse {
+  title: string
+  explanation: string
+  ai_tags: string[]
+}

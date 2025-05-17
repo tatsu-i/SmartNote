@@ -445,14 +445,6 @@ onMounted(async () => {
                 </div>
                 <div class="rounded-md bg-secondary/40 p-4 relative">
                   <p class="whitespace-pre-wrap">{{ selectedMemo.ai_explanation }}</p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    class="absolute top-2 right-2 hover:bg-primary/10 hover:text-primary"
-                  >
-                    <Copy class="mr-1 h-3 w-3" />
-                    コピー
-                  </Button>
                 </div>
               </div>
             </div>

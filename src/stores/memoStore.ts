@@ -1,5 +1,5 @@
 import { supabase } from '@/supabase/supabase'
-import type { memoContent } from '@/utils/types'
+import type { aiResponse, memoContent } from '@/utils/types'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { useAuthStore } from './authStore'
@@ -9,6 +9,7 @@ export const useMemoStore = defineStore('memo', () => {
 
   const user_id = computed(() => authStore.user.id)
   const memos = ref<memoContent[]>([])
+  const aiData = ref<aiResponse>()
   const loading = ref(false)
   const error = ref('')
 
@@ -28,32 +29,45 @@ export const useMemoStore = defineStore('memo', () => {
     }
   }
 
-  const addMemo = async (newMemo: string, type: 'text' | 'code' | 'question', tags: string[]) => {
+  const addMemo = async (newMemo: string, type: 'text' | 'code', tags: string[]) => {
+    const userData = {
+      memo_type: type,
+      user_memo: newMemo,
+      user_tags: tags,
+    }
+
     try {
-      // console.log(user_id.value)
       loading.value = true
+      const response = await fetch('http://localhost:3000/memo-ai-completions/normal', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
+      })
+
+      aiData.value = await response.json()
+      // console.log(aiData.value)
+
       const memo: memoContent = {
         id: crypto.randomUUID(),
         user_id: user_id.value,
-        title: 'メモのタイトル',
+        title: aiData.value!.title,
         is_pinned: false,
         type,
         user_memo: newMemo,
-        ai_explanation: 'AIによる説明',
-        tags,
+        ai_explanation: aiData.value!.explanation,
+        tags: aiData.value!.ai_tags,
         created_at: new Date().toISOString(),
       }
 
       const { data, error: insertError } = await supabase.from('memos').insert(memo).select()
       if (insertError) throw insertError
-      // console.log(data)
       if (data) {
         memos.value.push(data[0])
       }
     } catch (err) {
-      error.value = `メモを追加できませんでした：${err}`
-    } finally {
-      loading.value = false
+      error.value = `AIの生成に失敗しました:${err}`
     }
   }
 
