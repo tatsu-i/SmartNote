@@ -3,6 +3,7 @@ import { type aiQuickResponse, type aiResponse, type memoContent } from '@/utils
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { useAuthStore } from './authStore'
+import { apiRequest } from '@/utils/apiClient'
 
 export const useMemoStore = defineStore('memo', () => {
   const authStore = useAuthStore()
@@ -11,6 +12,7 @@ export const useMemoStore = defineStore('memo', () => {
   const memos = ref<memoContent[]>([])
   const aiData = ref<aiResponse>()
   const aiQuickData = ref<aiQuickResponse>()
+  const quotaInfo = ref({ remaining: 10, isSubscribed: false })
   const loading = ref(false)
   const error = ref('')
 
@@ -54,13 +56,15 @@ export const useMemoStore = defineStore('memo', () => {
 
     try {
       loading.value = true
-      const response = await fetch('http://localhost:3000/memo-ai-completions/normal', {
+      const response = await apiRequest('memo-ai-completions/normal', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(userData),
       })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'リクエストに失敗しました')
+      }
 
       aiData.value = await response.json()
       // console.log(aiData.value)
@@ -84,6 +88,10 @@ export const useMemoStore = defineStore('memo', () => {
         if (index !== -1) {
           memos.value[index] = data[0]
         }
+      }
+
+      if (aiData.value?.quotaInfo) {
+        quotaInfo.value = aiData.value.quotaInfo
       }
     } catch (err) {
       memos.value = memos.value.filter((m) => m.id !== tempMemo.id)
@@ -111,13 +119,15 @@ export const useMemoStore = defineStore('memo', () => {
 
     try {
       loading.value = true
-      const response = await fetch('http://localhost:3000/memo-ai-completions/quick', {
+      const response = await apiRequest('/memo-ai-completions/quick', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ user_memo: quickMemo }),
       })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'リクエストに失敗しました')
+      }
 
       aiQuickData.value = await response.json()
       // console.log(aiQuickData.value)
@@ -142,11 +152,26 @@ export const useMemoStore = defineStore('memo', () => {
           memos.value[index] = data[0]
         }
       }
+
+      if (aiQuickData.value?.quotaInfo) {
+        quotaInfo.value = aiQuickData.value.quotaInfo
+      }
     } catch (err) {
       memos.value = memos.value.filter((m) => m.id !== tempMemo.id)
       error.value = `AIの生成に失敗しました:${err}`
     } finally {
       loading.value = false
+    }
+  }
+
+  const getQuotaInfo = async () => {
+    try {
+      const response = await apiRequest('/quota_info'):
+      if (response.ok) {
+        quotaInfo.value = await response.json()
+      }
+    } catch {
+      console.error('クォータ情報の取得に失敗')
     }
   }
 
@@ -203,9 +228,11 @@ export const useMemoStore = defineStore('memo', () => {
     memos,
     loading,
     error,
+    quotaInfo,
     getMemo,
     addNormalMemo,
     addQuickMemo,
+    getQuotaInfo,
     deleteMemo,
     togglePin,
     editTags,

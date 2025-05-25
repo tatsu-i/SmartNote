@@ -16,6 +16,10 @@ export interface aiResponse {
   title: string
   explanation: string
   ai_tags: string[]
+  quotaInfo: {
+    remaining: number
+    isSubscribed: boolean
+  }
 }
 
 export interface aiQuickResponse extends aiResponse {
